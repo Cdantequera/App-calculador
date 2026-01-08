@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+/* --- ESTILOS PERSONALIZADOS DEL CALENDARIO --- */
+
+/* El contenedor principal del calendario */
+.react-calendar {
+  width: 100%;
+  background: transparent !important; /* Fondo transparente para ver el gris de atrás */
+  border: none !important;
+  font-family: inherit;
+  line-height: 1.125em;
+}
+
+/* Navegación (Mes/Año y flechas) */
+.react-calendar__navigation button {
+  color: #e2e8f0; /* slate-200 */
+  min-width: 44px;
+  background: none;
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-top: 8px;
+}
+.react-calendar__navigation button:enabled:hover,
+.react-calendar__navigation button:enabled:focus {
+  background-color: #1e293b; /* slate-800 */
+  border-radius: 8px;
+}
+
+/* Los días de la semana (L M M J V S D) */
+.react-calendar__month-view__weekdays {
+  text-align: center;
+  text-transform: uppercase;
+  font-weight: bold;
+  font-size: 0.75em;
+  color: #94a3b8; /* slate-400 */
+  text-decoration: none !important; /* Quitar subrayado */
+}
+/* Quitar el subrayado punteado por defecto de la librería */
+abbr[title] {
+  text-decoration: none !important;
+}
+
+/* Los botones de los días */
+.react-calendar__tile {
+  max-width: 100%;
+  padding: 10px 6.6667px;
+  background: none;
+  text-align: center;
+  line-height: 16px;
+  font-size: 1rem;
+  color: #f8fafc; /* slate-50 */
+  border-radius: 8px; /* Bordes redondeados */
+  transition: all 0.2s;
+}
+
+/* Hover sobre los días */
+.react-calendar__tile:enabled:hover,
+.react-calendar__tile:enabled:focus {
+  background-color: #334155; /* slate-700 */
+}
+
+/* Día ACTUAL (Hoy) */
+.react-calendar__tile--now {
+  background: #1e293b !important; /* slate-800 */
+  color: #60a5fa !important; /* blue-400 */
+  border: 1px solid #3b82f6;
+}
+
+/* Día SELECCIONADO (El que clickeas) */
+.react-calendar__tile--active {
+  background: linear-gradient(to right, #15803d, #16a34a) !important; /* Verde Ganancia */
+  color: white !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}

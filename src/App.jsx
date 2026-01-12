@@ -21,8 +21,6 @@ function App() {
   const [date, setDate] = useState(getInitialDate());
   const [currentScreen, setCurrentScreen] = useState('home');
   const [summaryView, setSummaryView] = useState('week'); 
-  
-  // ESTADO PARA LA INSTALACIÓN (NUEVO)
   const [installPrompt, setInstallPrompt] = useState(null);
 
   // --- 2. ESTADO PARA LOS DATOS ---
@@ -38,34 +36,61 @@ function App() {
     localStorage.setItem('gananciasApp', JSON.stringify(dailyData));
   }, [dailyData]);
 
-  // --- 3. LÓGICA DE INSTALACIÓN PWA (BOTÓN MANUAL) ---
+  // --- 3. MANEJO DEL BOTÓN "ATRÁS" DEL CELULAR (NUEVO) ---
   useEffect(() => {
-    const handler = (e) => {
-      // Prevenir que Chrome muestre su barra nativa automáticamente
-      e.preventDefault();
-      // Guardar el evento para usarlo cuando hagamos clic en el botón
-      setInstallPrompt(e);
-      console.log("Evento de instalación capturado!");
+    // Escuchar cuando el usuario presiona el botón físico de atrás
+    const handlePopState = () => {
+      // Si hay un estado en el historial (significa que estábamos en una sub-pantalla), volvemos a home
+      // O si el evento ocurre y no es home, forzamos home.
+      if (currentScreen !== 'home') {
+        setCurrentScreen('home');
+      }
     };
 
-    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [currentScreen]);
 
+  // Función para navegar "hacia adelante" (Cargar, Resumen)
+  const navigateTo = (screenName) => {
+    // Agregamos una entrada al historial del navegador
+    window.history.pushState({ screen: screenName }, '', ''); 
+    setCurrentScreen(screenName);
+  };
+
+  // Función para volver "hacia atrás" manualmente (ej. botón Cancelar)
+  const goBack = () => {
+    window.history.back(); // Esto dispara el evento 'popstate' y nos lleva al Home
+  };
+
+  // --- 4. CÁLCULO DEL SALDO TOTAL GLOBAL (NUEVO) ---
+  // Suma todos los ingresos y resta todos los gastos de la historia de la app
+  const calculateGlobalTotal = () => {
+    let globalIncome = 0;
+    let globalExpense = 0;
+    
+    Object.values(dailyData).forEach(day => {
+        globalIncome += day.income || 0;
+        globalExpense += day.expenses || 0;
+    });
+
+    return globalIncome - globalExpense;
+  };
+
+  // --- LÓGICA DE INSTALACIÓN PWA ---
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
-  // Función para instalar al hacer clic
   const handleInstallClick = () => {
     if (!installPrompt) return;
-
-    // Mostrar la pregunta nativa
     installPrompt.prompt();
-
-    // Ver qué decidió el usuario
-    installPrompt.userChoice.then((choiceResult) => {
-      if (choiceResult.outcome === 'accepted') {
-        console.log('Usuario aceptó instalar');
-      }
-      // Ya usamos el evento, lo limpiamos y el botón desaparecerá
+    installPrompt.userChoice.then(() => {
       setInstallPrompt(null);
     });
   };
@@ -81,7 +106,7 @@ function App() {
     return `${year}-${month}-${day}`;
   };
 
-  // --- 4. CÁLCULOS ---
+  // --- CÁLCULOS ESTADÍSTICOS ---
   const getWeekRange = (baseDate) => {
     const start = new Date(baseDate);
     const day = start.getDay(); 
@@ -131,7 +156,7 @@ function App() {
     return { totalIncome, totalExpense, net: totalIncome - totalExpense, daysWorked: daysWithData };
   };
 
-  // --- 5. FUNCIONES DE INTERFAZ ---
+  // --- GUARDADO DE DATOS ---
   const handlePreSave = () => {
     const cashVal = parseFloat(inputCash) || 0;
     const expenseVal = parseFloat(inputExpense) || 0;
@@ -179,7 +204,10 @@ function App() {
     });
     setInputCash('');
     setInputExpense('');
-    setCurrentScreen('home');
+    
+    // Al guardar, volvemos atrás usando el historial para mantener la sincronía
+    goBack();
+
     Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 2000, background: '#1e293b', color: '#fff' }).fire({ icon: 'success', title: 'Guardado' });
   };
 
@@ -212,6 +240,10 @@ function App() {
   const selectedDateKey = getDateKey(date);
   const dayData = dailyData[selectedDateKey] || { income: 0, expenses: 0, history: [] };
   const dayNet = dayData.income - dayData.expenses;
+  
+  // Variable para el Saldo Global
+  const globalTotal = calculateGlobalTotal();
+
   const stats = currentScreen === 'resumen' 
     ? (summaryView === 'week' ? calculateWeeklyStats() : calculateMonthlyStats()) 
     : null;
@@ -221,54 +253,60 @@ function App() {
       
       {/* --- HEADER --- */}
       <header className="w-full max-w-md text-center py-6 mb-4 relative">
-        {currentScreen !== 'home' && (
-          <button 
-            onClick={() => setCurrentScreen('home')}
-            className="absolute left-0 top-6 text-slate-400 hover:text-white text-xl p-2"
-          >
-            ← Volver
-          </button>
-        )}
         <h1 className="text-2xl font-bold tracking-wide uppercase text-slate-100 drop-shadow-md flex items-center justify-center gap-3">
             <i className="fi fi-ss-coins text-yellow-400 text-3xl"></i>
-            Calculador
+            GananciApp
         </h1>
         {new Date().getHours() < DAY_CUTOFF_HOUR && (
             <span className="text-xs text-yellow-500 font-mono block mt-1">🌙 Modo Nocturno (Ayer)</span>
         )}
 
-        {/* --- BOTÓN DE INSTALAR APP (Solo visible si es posible instalar) --- */}
         {installPrompt && (
           <button 
             onClick={handleInstallClick}
-            className="mt-4 bg-gradient-to-r from-yellow-600 to-orange-600 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg animate-pulse"
+            className="mt-4 bg-linear-to-r from-yellow-600 to-orange-600 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg animate-pulse"
           >
             📲 Instalar App en Celular
           </button>
         )}
-
       </header>
 
       {/* --- PANTALLA PRINCIPAL (HOME) --- */}
       {currentScreen === 'home' && (
         <>
           <div className="w-full max-w-md bg-slate-900 rounded-2xl p-4 shadow-lg border border-slate-800 mb-6 flex flex-col items-center justify-center relative">
-            <div className={`absolute top-0 left-0 w-full h-2 rounded-t-2xl ${dayNet >= 0 ? 'bg-blue-600' : 'bg-red-600'}`}></div>
-            <div className="mt-4 w-full">
+            
+            {/* --- CUADRO: SALDO TOTAL (DINERO DISPONIBLE) --- */}
+            <div className="w-full mb-4 bg-linear-to-r from-slate-800 to-slate-900 rounded-xl p-4 border border-slate-700 shadow-inner flex flex-col items-center justify-center relative overflow-hidden">
+                {/* Decoración de fondo */}
+                <div className={`absolute top-0 right-0 w-16 h-16 rounded-bl-full opacity-20 ${globalTotal >= 0 ? 'bg-blue-500' : 'bg-red-500'}`}></div>
+                
+                <span className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-1">
+                    Dinero Total Disponible
+                </span>
+                <span className={`text-4xl font-extrabold tracking-tight ${globalTotal >= 0 ? 'text-white' : 'text-red-400'}`}>
+                    ${globalTotal}
+                </span>
+                <span className="text-[10px] text-slate-500 mt-1">Acumulado histórico</span>
+            </div>
+            
+            <div className={`absolute top-0 left-0 w-full h-1 rounded-t-2xl ${dayNet >= 0 ? 'bg-blue-600' : 'bg-red-600'}`} style={{top:'-1px'}}></div>
+
+            <div className="w-full mt-2">
                <Calendar onChange={onChangeDate} value={date} locale="es-ES" />
             </div>
             
             <div className="mt-4 w-full flex justify-between text-sm px-2 border-t border-slate-800 pt-3">
                 <div className="text-center">
-                    <p className="text-slate-500">Ingreso</p>
+                    <p className="text-slate-500">Ingreso Día</p>
                     <p className="text-green-400 font-bold text-lg">${dayData.income}</p>
                 </div>
                 <div className="text-center">
-                    <p className="text-slate-500">Gastos</p>
+                    <p className="text-slate-500">Gastos Día</p>
                     <p className="text-red-400 font-bold text-lg">${dayData.expenses}</p>
                 </div>
                 <div className="text-center">
-                    <p className="text-slate-500">Neto</p>
+                    <p className="text-slate-500">Neto Día</p>
                     <p className={`font-bold text-lg ${dayNet >= 0 ? 'text-blue-400' : 'text-red-500'}`}>${dayNet}</p>
                 </div>
             </div>
@@ -298,15 +336,15 @@ function App() {
 
           <div className="w-full max-w-md flex flex-col gap-4 mb-6">
             <button 
-              onClick={() => setCurrentScreen('cargar')}
-              className="w-full py-4 bg-gradient-to-r from-green-700 to-green-600 hover:from-green-600 rounded-xl text-xl font-bold shadow-lg border-b-4 border-green-900 flex items-center justify-center"
+              onClick={() => navigateTo('cargar')}
+              className="w-full py-4 bg-linear-to-r from-green-700 to-green-600 hover:from-green-600 rounded-xl text-xl font-bold shadow-lg border-b-4 border-green-900 flex items-center justify-center"
             >
               <span className="mr-2">💰</span> Cargar Movimiento
             </button>
             
              <button 
-              onClick={() => setCurrentScreen('resumen')}
-              className="w-full py-4 bg-gradient-to-r from-blue-700 to-blue-600 hover:from-blue-600 rounded-xl text-xl font-bold shadow-lg border-b-4 border-blue-900 flex items-center justify-center"
+              onClick={() => navigateTo('resumen')}
+              className="w-full py-4 bg-linear-to-r from-blue-700 to-blue-600 hover:from-blue-600 rounded-xl text-xl font-bold shadow-lg border-b-4 border-blue-900 flex items-center justify-center"
             >
               <span className="mr-2">📊</span> Resumen / Estadísticas
             </button>
@@ -347,7 +385,6 @@ function App() {
                         date.toLocaleString('es-ES', { month: 'long', year: 'numeric' })
                     )}
                 </h2>
-                <p className="text-xs text-slate-500 mt-1">Días trabajados: {stats.daysWorked}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4 mb-6">
@@ -363,16 +400,13 @@ function App() {
                 </div>
             </div>
 
-            <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl text-center mb-6 relative overflow-hidden">
-                <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${stats.net >= 0 ? 'from-blue-500 to-green-500' : 'from-red-500 to-orange-500'}`}></div>
+            <div className="bg-linear-to-br from-slate-900 to-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl text-center mb-6 relative overflow-hidden">
+                <div className={`absolute top-0 left-0 w-full h-1 bg-linear-to-r ${stats.net >= 0 ? 'from-blue-500 to-green-500' : 'from-red-500 to-orange-500'}`}></div>
                 <h3 className="text-slate-300 text-lg uppercase tracking-widest mb-2">
                     Ganancia {summaryView === 'week' ? 'Semanal' : 'Mensual'}
                 </h3>
                 <p className={`text-4xl font-bold ${stats.net >= 0 ? 'text-blue-400' : 'text-red-500'}`}>
                     ${stats.net}
-                </p>
-                <p className="text-xs text-slate-500 mt-2">
-                    {summaryView === 'week' ? 'Total limpio esta semana' : 'Total acumulado este mes'}
                 </p>
             </div>
         </div>
@@ -400,7 +434,7 @@ function App() {
               </div>
             </div>
             <div className="flex gap-3">
-              <button onClick={() => setCurrentScreen('home')} className="flex-1 py-4 bg-transparent border-2 border-slate-600 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl text-lg font-bold">Cancelar</button>
+              <button onClick={goBack} className="flex-1 py-4 bg-transparent border-2 border-slate-600 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl text-lg font-bold">Cancelar</button>
               <button onClick={handlePreSave} className="flex-1 py-4 bg-slate-100 text-slate-900 hover:bg-white rounded-xl text-lg font-bold border-b-4 border-slate-400">SEND</button>
             </div>
           </div>

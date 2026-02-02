@@ -36,35 +36,27 @@ function App() {
     localStorage.setItem('gananciasApp', JSON.stringify(dailyData));
   }, [dailyData]);
 
-  // --- 3. MANEJO DEL BOTÓN "ATRÁS" DEL CELULAR (NUEVO) ---
+  // --- 3. MANEJO DEL BOTÓN "ATRÁS" DEL CELULAR ---
   useEffect(() => {
-    // Escuchar cuando el usuario presiona el botón físico de atrás
     const handlePopState = () => {
-      // Si hay un estado en el historial (significa que estábamos en una sub-pantalla), volvemos a home
-      // O si el evento ocurre y no es home, forzamos home.
       if (currentScreen !== 'home') {
         setCurrentScreen('home');
       }
     };
-
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [currentScreen]);
 
-  // Función para navegar "hacia adelante" (Cargar, Resumen)
   const navigateTo = (screenName) => {
-    // Agregamos una entrada al historial del navegador
     window.history.pushState({ screen: screenName }, '', ''); 
     setCurrentScreen(screenName);
   };
 
-  // Función para volver "hacia atrás" manualmente (ej. botón Cancelar)
   const goBack = () => {
-    window.history.back(); // Esto dispara el evento 'popstate' y nos lleva al Home
+    window.history.back(); 
   };
 
-  // --- 4. CÁLCULO DEL SALDO TOTAL GLOBAL (NUEVO) ---
-  // Suma todos los ingresos y resta todos los gastos de la historia de la app
+  // --- 4. CÁLCULO DEL SALDO TOTAL GLOBAL ---
   const calculateGlobalTotal = () => {
     let globalIncome = 0;
     let globalExpense = 0;
@@ -104,6 +96,19 @@ function App() {
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  };
+
+  // --- NUEVA FUNCIÓN: CAMBIAR PERIODO EN RESUMEN ---
+  const changePeriod = (increment) => {
+    const newDate = new Date(date);
+    if (summaryView === 'week') {
+        // Sumar o restar 7 días
+        newDate.setDate(newDate.getDate() + (increment * 7));
+    } else {
+        // Sumar o restar 1 mes
+        newDate.setMonth(newDate.getMonth() + increment);
+    }
+    setDate(newDate);
   };
 
   // --- CÁLCULOS ESTADÍSTICOS ---
@@ -204,10 +209,7 @@ function App() {
     });
     setInputCash('');
     setInputExpense('');
-    
-    // Al guardar, volvemos atrás usando el historial para mantener la sincronía
     goBack();
-
     Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 2000, background: '#1e293b', color: '#fff' }).fire({ icon: 'success', title: 'Guardado' });
   };
 
@@ -240,8 +242,6 @@ function App() {
   const selectedDateKey = getDateKey(date);
   const dayData = dailyData[selectedDateKey] || { income: 0, expenses: 0, history: [] };
   const dayNet = dayData.income - dayData.expenses;
-  
-  // Variable para el Saldo Global
   const globalTotal = calculateGlobalTotal();
 
   const stats = currentScreen === 'resumen' 
@@ -260,13 +260,9 @@ function App() {
         {new Date().getHours() < DAY_CUTOFF_HOUR && (
             <span className="text-xs text-yellow-500 font-mono block mt-1">🌙 Modo Nocturno (Ayer)</span>
         )}
-
         {installPrompt && (
-          <button 
-            onClick={handleInstallClick}
-            className="mt-4 bg-linear-to-r from-yellow-600 to-orange-600 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg animate-pulse"
-          >
-            📲 Instalar App en Celular
+          <button onClick={handleInstallClick} className="mt-4 bg-linear-to-r from-yellow-600 to-orange-600 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg animate-pulse">
+            📲 Instalar App
           </button>
         )}
       </header>
@@ -275,12 +271,8 @@ function App() {
       {currentScreen === 'home' && (
         <>
           <div className="w-full max-w-md bg-slate-900 rounded-2xl p-4 shadow-lg border border-slate-800 mb-6 flex flex-col items-center justify-center relative">
-            
-            {/* --- CUADRO: SALDO TOTAL (DINERO DISPONIBLE) --- */}
             <div className="w-full mb-4 bg-linear-to-r from-slate-800 to-slate-900 rounded-xl p-4 border border-slate-700 shadow-inner flex flex-col items-center justify-center relative overflow-hidden">
-                {/* Decoración de fondo */}
                 <div className={`absolute top-0 right-0 w-16 h-16 rounded-bl-full opacity-20 ${globalTotal >= 0 ? 'bg-blue-500' : 'bg-red-500'}`}></div>
-                
                 <span className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-1">
                     Dinero Total Disponible
                 </span>
@@ -289,24 +281,21 @@ function App() {
                 </span>
                 <span className="text-[10px] text-slate-500 mt-1">Acumulado histórico</span>
             </div>
-            
             <div className={`absolute top-0 left-0 w-full h-1 rounded-t-2xl ${dayNet >= 0 ? 'bg-blue-600' : 'bg-red-600'}`} style={{top:'-1px'}}></div>
-
             <div className="w-full mt-2">
                <Calendar onChange={onChangeDate} value={date} locale="es-ES" />
             </div>
-            
             <div className="mt-4 w-full flex justify-between text-sm px-2 border-t border-slate-800 pt-3">
                 <div className="text-center">
-                    <p className="text-slate-500">Ingreso Día</p>
+                    <p className="text-slate-500">Ingreso</p>
                     <p className="text-green-400 font-bold text-lg">${dayData.income}</p>
                 </div>
                 <div className="text-center">
-                    <p className="text-slate-500">Gastos Día</p>
+                    <p className="text-slate-500">Gastos</p>
                     <p className="text-red-400 font-bold text-lg">${dayData.expenses}</p>
                 </div>
                 <div className="text-center">
-                    <p className="text-slate-500">Neto Día</p>
+                    <p className="text-slate-500">Neto</p>
                     <p className={`font-bold text-lg ${dayNet >= 0 ? 'text-blue-400' : 'text-red-500'}`}>${dayNet}</p>
                 </div>
             </div>
@@ -335,17 +324,10 @@ function App() {
           </div>
 
           <div className="w-full max-w-md flex flex-col gap-4 mb-6">
-            <button 
-              onClick={() => navigateTo('cargar')}
-              className="w-full py-4 bg-linear-to-r from-green-700 to-green-600 hover:from-green-600 rounded-xl text-xl font-bold shadow-lg border-b-4 border-green-900 flex items-center justify-center"
-            >
+            <button onClick={() => navigateTo('cargar')} className="w-full py-4 bg-linear-to-r from-green-700 to-green-600 hover:from-green-600 rounded-xl text-xl font-bold shadow-lg border-b-4 border-green-900 flex items-center justify-center">
               <span className="mr-2">💰</span> Cargar Movimiento
             </button>
-            
-             <button 
-              onClick={() => navigateTo('resumen')}
-              className="w-full py-4 bg-linear-to-r from-blue-700 to-blue-600 hover:from-blue-600 rounded-xl text-xl font-bold shadow-lg border-b-4 border-blue-900 flex items-center justify-center"
-            >
+             <button onClick={() => navigateTo('resumen')} className="w-full py-4 bg-linear-to-r from-blue-700 to-blue-600 hover:from-blue-600 rounded-xl text-xl font-bold shadow-lg border-b-4 border-blue-900 flex items-center justify-center">
               <span className="mr-2">📊</span> Resumen / Estadísticas
             </button>
           </div>
@@ -356,35 +338,40 @@ function App() {
       {currentScreen === 'resumen' && stats && (
         <div className="w-full max-w-md animate-fade-in-up">
             <div className="flex bg-slate-900 p-1 rounded-xl mb-6 border border-slate-800">
-                <button 
-                    onClick={() => setSummaryView('week')}
-                    className={`flex-1 py-2 rounded-lg font-bold transition-all ${summaryView === 'week' ? 'bg-slate-700 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
-                >
+                <button onClick={() => setSummaryView('week')} className={`flex-1 py-2 rounded-lg font-bold transition-all ${summaryView === 'week' ? 'bg-slate-700 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}>
                     Semanal
                 </button>
-                <button 
-                    onClick={() => setSummaryView('month')}
-                    className={`flex-1 py-2 rounded-lg font-bold transition-all ${summaryView === 'month' ? 'bg-slate-700 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
-                >
+                <button onClick={() => setSummaryView('month')} className={`flex-1 py-2 rounded-lg font-bold transition-all ${summaryView === 'month' ? 'bg-slate-700 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}>
                     Mensual
                 </button>
             </div>
 
-            <div className="bg-slate-800 rounded-xl p-4 mb-4 text-center border border-slate-700">
-                <p className="text-slate-400 text-xs uppercase tracking-wider mb-1">
-                    {summaryView === 'week' ? 'Rango Semanal' : 'Mes Completo'}
-                </p>
-                <h2 className="text-xl font-bold text-white capitalize">
-                    {summaryView === 'week' ? (
-                        <>
-                            {stats.startDate.toLocaleDateString(undefined, {day:'numeric', month:'short'})} 
-                            <span className="text-slate-500 mx-2"> al </span>
-                            {new Date(stats.startDate.getTime() + 6*24*60*60*1000).toLocaleDateString(undefined, {day:'numeric', month:'short'})}
-                        </>
-                    ) : (
-                        date.toLocaleString('es-ES', { month: 'long', year: 'numeric' })
-                    )}
-                </h2>
+            {/* --- AQUÍ ESTÁ EL CAMBIO CLAVE: BOTONES PARA NAVEGAR FECHAS --- */}
+            <div className="bg-slate-800 rounded-xl p-4 mb-4 text-center border border-slate-700 flex justify-between items-center">
+                <button onClick={() => changePeriod(-1)} className="p-2 text-slate-400 hover:text-white bg-slate-700 rounded-lg hover:bg-slate-600 transition">
+                    ◀
+                </button>
+                
+                <div className="flex flex-col items-center">
+                    <p className="text-slate-400 text-xs uppercase tracking-wider mb-1">
+                        {summaryView === 'week' ? 'Rango Semanal' : 'Mes Completo'}
+                    </p>
+                    <h2 className="text-lg font-bold text-white capitalize">
+                        {summaryView === 'week' ? (
+                            <>
+                                {stats.startDate.toLocaleDateString(undefined, {day:'numeric', month:'short'})} 
+                                <span className="text-slate-500 mx-2">-</span>
+                                {new Date(stats.startDate.getTime() + 6*24*60*60*1000).toLocaleDateString(undefined, {day:'numeric', month:'short'})}
+                            </>
+                        ) : (
+                            date.toLocaleString('es-ES', { month: 'long', year: 'numeric' })
+                        )}
+                    </h2>
+                </div>
+
+                <button onClick={() => changePeriod(1)} className="p-2 text-slate-400 hover:text-white bg-slate-700 rounded-lg hover:bg-slate-600 transition">
+                    ▶
+                </button>
             </div>
 
             <div className="grid grid-cols-2 gap-4 mb-6">
